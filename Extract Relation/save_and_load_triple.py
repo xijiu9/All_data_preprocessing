@@ -32,10 +32,11 @@ def flatten(lst):
     return result
 
 Triple_dict = {}
-Prompt_dict = {}
 
 
 # BioLAMA
+Prompt_dict = {}
+
 BioLAMA_path = sorted(glob.glob("../../BioLAMA/data/**/triples_processed/**/*.jsonl", recursive=True))
 Prompt_path = sorted(glob.glob("../../BioLAMA/data/**/prompts/manual.jsonl", recursive=True))
 for file_path in Prompt_path:
@@ -72,49 +73,44 @@ for file_path in BioLAMA_path:
             else:
                 Triple_dict[data_short].append(triple)
 
-            break
-    break
-
 
 # MedLAMA
-BioLAMA_path = sorted(glob.glob("../../MedLAMA/data/medlama/2021AA/*.csv", recursive=True))
+Prompt_dict = {}
+
+MedLAMA_path = sorted(glob.glob("../../MedLAMA/data/medlama/2021AA/*.csv", recursive=True))
 Prompt_path = sorted(glob.glob("../../MedLAMA/data/medlama/prompts.csv", recursive=True))
 for file_path in Prompt_path:
-    with open(file_path, 'r') as f:
-        for line in f:
-            prompt = json.loads(line)
-            Prompt_dict[prompt["relation"]] = prompt["template"]
+    prompts = pd.read_csv(file_path)
+    for index, prompt in prompts.iterrows():
+        Prompt_dict[prompt["pid"]] = prompt["human_prompt"]
 
-for file_path in BioLAMA_path:
-    with open(file_path, 'r') as f:
-        for line in f:
-            data = json.loads(line)
-            triple = create_triple("BioLAMA")
+for file_path in MedLAMA_path:
+    df = pd.read_csv(file_path)
+    for index, data in df.iterrows():
+        triple = create_triple("MedLAMA")
 
-            triple['data_path'] = file_path
+        triple['data_path'] = file_path
 
-            dir_parts = os.path.dirname(file_path).split('/')
-            data_short = '/'.join([dir_parts[2], dir_parts[4], dir_parts[6]])
-            triple['data_short'] = data_short
+        dir_parts = os.path.dirname(file_path).split('/')
+        file_name = os.path.splitext(os.path.basename(file_path))[0]
+        data_short = '/'.join([dir_parts[2], dir_parts[4], file_name])
+        triple['data_short'] = data_short
 
-            triple['subject'] = data['sub_label']
-            triple['subject_synonym'] = data['sub_aliases']
-            triple['subject_index'] = data['sub_uri']
+        triple['subject'] = data['head_name']
+        triple['subject_synonym'] = None
+        triple['subject_index'] = data['head_cui']
 
-            triple['relation'] = data['predicate_id']
-            triple['relation_prompt'] = Prompt_dict[data['predicate_id']]
+        triple['relation'] = data['rel']
+        triple['relation_prompt'] = Prompt_dict[data['rel']]
 
-            triple['object'] = data['obj_labels']
-            triple['object_synonym'] = data['obj_aliases']
-            triple['object_index'] = data['obj_uris']
+        triple['object'] = data['tail_names_list']
+        triple['object_synonym'] = None
+        triple['object_index'] = data['tail_cuis_list']
 
-            if data_short not in Triple_dict.keys():
-                Triple_dict[data_short] = [triple, ]
-            else:
-                Triple_dict[data_short].append(triple)
-
-            break
-    break
+        if data_short not in Triple_dict.keys():
+            Triple_dict[data_short] = [triple, ]
+        else:
+            Triple_dict[data_short].append(triple)
 
 
 for data_short, Triple_list in Triple_dict.items():
