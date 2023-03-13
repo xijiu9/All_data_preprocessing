@@ -23,9 +23,18 @@ def create_triple(data_belong):
     return triple
 
 def flatten(lst):
+    # print(11111)
     result = []
     for item in lst:
-        if isinstance(item, str):
+        if isinstance(item, str) and item.startswith('[') and item.endswith(']'):
+            try:
+                eval_lst = eval(item)
+            except:
+                print(item)
+                eval_lst = [item[1:-1]]
+                print(eval_lst)
+            result.extend(eval_lst)
+        elif isinstance(item, str):
             result.append(item)
         elif isinstance(item, list):
             result.extend(flatten(item))
@@ -73,6 +82,8 @@ for file_path in BioLAMA_path:
             else:
                 Triple_dict[data_short].append(triple)
 
+    #         break
+    # break
 
 # MedLAMA
 Prompt_dict = {}
@@ -112,6 +123,9 @@ for file_path in MedLAMA_path:
         else:
             Triple_dict[data_short].append(triple)
 
+    #     break
+    # break
+
 
 for data_short, Triple_list in Triple_dict.items():
     save_dir = f"Triple_result/{data_short}"
@@ -128,8 +142,11 @@ for data_short, Triple_list in Triple_dict.items():
         Subject_list.append(triple['subject_synonym'])
 
     print(f"{data_short} original have {len(Subject_list)} Subject and {len(Object_list)} Object")
-    Object_list = set(flatten(Object_list))
-    Subject_list = set(flatten(Subject_list))
+    Object_list = flatten(Object_list)
+    Subject_list = flatten(Subject_list)
+
+    Object_list = set(Object_list)
+    Subject_list = set(Subject_list)
     print(f"{data_short} Set have {len(Subject_list)} Subject and {len(Object_list)} Object")
 
     with open(os.path.join(save_dir, "Object_list.json"), "w") as f:

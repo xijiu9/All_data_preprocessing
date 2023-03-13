@@ -10,7 +10,7 @@ import IPython
 
 print(time.asctime(time.localtime()))
 
-with open('Extract_relation/Extract Result/BioLAMA/ctd/CD1/Object_dict.json') as f:
+with open('Extract Relation/Extract Result/e_result/BioLAMA/ctd/CD1/Object_dict.json') as f:
     Object_dict = json.load(f)
 
 print(time.asctime(time.localtime()))
@@ -27,6 +27,27 @@ sorted_dict = dict(sorted(Object_dict.items(), key=lambda item: len(item[1])))
 
 for k ,v in sorted_dict.items():
     print(k, len(v))
+
+with open('data.txt', 'w') as f:
+    for k, v in sorted_dict.items():
+        f.write(f'{k}: {len(v)}\n')
+
+# print(len(sorted_dict["cancer"]))
+# # print(len(sorted_dict["of"]))
+# # print(len(sorted_dict["the"]))
+# print(len(sorted_dict["ovary"]))
+#
+# print(sorted_dict["cancer"][:5])
+# print(sorted_dict["ovary"][:5])
+#
+# common_elements = set(sorted_dict["cancer"]).intersection(set(sorted_dict["ovary"]))
+#
+# print(len(common_elements))
+# print(common_elements)
+
+
+
+
 
 
 

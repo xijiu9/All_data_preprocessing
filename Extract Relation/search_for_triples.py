@@ -8,13 +8,15 @@ from tqdm import tqdm
 
 print("The current time is:", time.strftime("%H:%M:%S", time.localtime()), "Start Loading")
 
-BioLAMA_files = sorted(glob.glob("data/BioLAMA/*/*/", recursive=True))
-MedLAMA_files = sorted(glob.glob("data/MedLAMA/*/", recursive=True))
+BioLAMA_files = sorted(glob.glob("Triple_result/BioLAMA/*/*/", recursive=True))
+MedLAMA_files = sorted(glob.glob("Triple_result/MedLAMA/*/*/", recursive=True))
 
 
 BioLAMA_files.extend(MedLAMA_files)
 
 BioMedLAMA_files = [dir for dir in BioLAMA_files if os.path.isdir(dir)]
+
+print(BioMedLAMA_files)
 
 with open('../DIVIDE INTO MONTHS/data/refined_pubmed_abstract.json') as f:
     Pubmed_data = json.load(f)
@@ -22,6 +24,12 @@ with open('../DIVIDE INTO MONTHS/data/refined_pubmed_abstract.json') as f:
 print("The current time is:", time.strftime("%H:%M:%S", time.localtime()), "finish loading Pubmed")
 
 tokenizer = nltk.RegexpTokenizer(r'[\w-]+')
+
+nltk.download('stopwords')
+stop_words = set(nltk.corpus.stopwords.words('english'))
+
+Object_all_dict = {}
+Subject_all_dict = {}
 
 for file_path in BioMedLAMA_files:
     print("The current time is:", time.strftime("%H:%M:%S", time.localtime()), f" {file_path}")
@@ -47,6 +55,9 @@ for file_path in BioMedLAMA_files:
     for string in Subject_set:
         words = tokenizer.tokenize(string)
         Subject_set_single.update(words)
+
+    Object_set_single = Object_set_single - stop_words
+    Subject_set_single = Subject_set_single - stop_words
 
     Object_dict = {k: [] for k in Object_set_single}
     Subject_dict = {k: [] for k in Subject_set_single}

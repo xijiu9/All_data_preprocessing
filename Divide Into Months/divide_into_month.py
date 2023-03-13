@@ -46,7 +46,7 @@ for file_name in sorted(os.listdir("../Fetch Date Info/data_map")):
             if pubmed_data[key][0][-1] in ['.', '?', '!']:
                 combine_data = pubmed_data[key][0].replace('[', '').replace(']', '') + pubmed_data[key][1]
             else:
-                combine_data = pubmed_data[key][0].replace('[', '').replace(']', '') + '.' + pubmed_data[key][1]
+                combine_data = pubmed_data[key][0].replace('[', '').replace(']', '') + '. ' + pubmed_data[key][1]
 
             fp.write(combine_data)
             fp.write('\n')
