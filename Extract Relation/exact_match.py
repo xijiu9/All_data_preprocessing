@@ -5,16 +5,17 @@ import pandas as pd
 import time
 import nltk
 from tqdm import tqdm
+import copy
 import pyfiglet
 
 
-Relation_path = sorted(list(set(glob.glob("Extract Result/e_result/*/*/*/", recursive=True))))
+Relation_path = sorted(list(set(glob.glob("Extract Result/e_result/BioLAMA/umls/*/", recursive=True))))
 
 tokenizer = nltk.RegexpTokenizer(r'[\w-]+')
 
 print("The current time is:", time.strftime("%H:%M:%S", time.localtime()), "start loading Pubmed")
 
-with open('../Divide Into Months/data/refined_pubmed_abstract.json') as f:
+with open('../Divide_Into_Months/data/refined_pubmed_abstract.json') as f:
     Pubmed_data = json.load(f)
 
 print("The current time is:", time.strftime("%H:%M:%S", time.localtime()), "finish loading Pubmed")
@@ -27,9 +28,9 @@ def flatten(lst):
             try:
                 eval_lst = eval(item)
             except:
-                print(item)
+                # print(item)
                 eval_lst = [item[1:-1]]
-                print(eval_lst)
+                # print(eval_lst)
             result.extend(eval_lst)
         elif isinstance(item, str):
             result.append(item)
@@ -60,6 +61,7 @@ for file_path in Relation_path:
 
     print("The current time is:", time.strftime("%H:%M:%S", time.localtime()), "Finish Loading 3")
 
+    Triple_list_with_relation = []
     for triple in tqdm(Triple_list):
         objs = triple["object"]
         obj_syns = triple["object_synonym"]
@@ -79,12 +81,13 @@ for file_path in Relation_path:
 
         # object
         union_objs_pmid = set([])
+        union_objs_dict = {}
         for obj in objs:
             words = tokenizer.tokenize(obj)
             for idx, word in enumerate(words):
                 word = word.lower()
                 if word not in Object_dict.keys():
-                    print(f"CAN NOT FIND {word}")
+                    # print(f"CAN NOT FIND {word}")
                     continue
                 word_pmid = Object_dict[word]
                 # print(word, word_pmid[:5], word_pmid[-5:])
@@ -104,6 +107,7 @@ for file_path in Relation_path:
                     if obj in article:
                         union_objs_pmid.add(pmid)
                         actual_common_obj_pmid.add(pmid)
+                        union_objs_dict[pmid] = obj
 
             # if len(actual_common_obj_pmid):
             #     print("OBJ ", obj)
@@ -111,13 +115,14 @@ for file_path in Relation_path:
             #     print("OBJ ", len(actual_common_obj_pmid), list(actual_common_obj_pmid)[:5], list(actual_common_obj_pmid)[-5:])
 
         union_subs_pmid = set([])
+        union_subs_dict = {}
         for sub in subs:
             words = tokenizer.tokenize(sub)
             for idx, word in enumerate(words):
-                print(word)
+                # print(word)
                 word = word.lower()
                 if word not in Subject_dict.keys():
-                    print(f"CAN NOT FIND {word}")
+                    # print(f"CAN NOT FIND {word}")
                     continue
                 word_pmid = Subject_dict[word]
                 # print(word, word_pmid[:5], word_pmid[-5:])
@@ -138,6 +143,7 @@ for file_path in Relation_path:
                     if sub in article:
                         union_subs_pmid.add(pmid)
                         actual_common_sub_pmid.add(pmid)
+                        union_subs_dict[pmid] = sub
 
             # if len(actual_common_sub_pmid):
             #     print("SUB ", sub)
@@ -146,7 +152,22 @@ for file_path in Relation_path:
 
 
         union_relation_pmid = set(union_subs_pmid).intersection(set(union_objs_pmid))
-        print("RELATION ", len(union_relation_pmid), list(union_relation_pmid)[:5], list(union_relation_pmid)[-5:])
+        # print("RELATION ", len(union_relation_pmid), list(union_relation_pmid)[:5], list(union_relation_pmid)[-5:])
         if len(union_relation_pmid):
-            result = pyfiglet.figlet_format(objs[0] + "  " + subs[0])
-            print(result)
+            print(objs[0] + "  " + subs[0])
+
+            new_triple = triple.copy()
+            new_triple["extract relation pairs"] = {}
+            for pmid in union_relation_pmid:
+                new_triple["extract relation pairs"][pmid] = {"sub": union_subs_dict[pmid],
+                                                              "obj": union_objs_dict[pmid]}
+            new_triple["extract relation pairs"] = dict(sorted(new_triple["extract relation pairs"].items()))
+            # print(new_triple["extract relation pairs"])
+
+            Triple_list_with_relation.append(new_triple)
+            os.makedirs(os.path.join("Triple with Relation", short_path), exist_ok=True)
+            with open(os.path.join("Triple with Relation", short_path, "New_Triple_list.json"), "w") as f:
+                json.dump(Triple_list_with_relation, f, indent=4)
+
+
+
