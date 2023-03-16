@@ -11,6 +11,8 @@ import pyfiglet
 
 Relation_path = sorted(list(set(glob.glob("Extract Result/e_result/BioLAMA/umls/*/", recursive=True))))
 
+Relation_path.reverse()
+
 tokenizer = nltk.RegexpTokenizer(r'[\w-]+')
 
 print("The current time is:", time.strftime("%H:%M:%S", time.localtime()), "start loading Pubmed")

@@ -7,30 +7,66 @@ import nltk
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import IPython
+import numpy as np
 
 print(time.asctime(time.localtime()))
 
-with open('Extract Relation/Extract Result/e_result/BioLAMA/ctd/CD1/Object_dict.json') as f:
-    Object_dict = json.load(f)
+triples_with_relation_path = sorted(glob.glob("Extract Relation/Triple with Relation/*/*/*/New_Triple_list.json"))
 
-print(time.asctime(time.localtime()))
+Triple_list_after_2020 = []
 
-values = []
-for k, v in Object_dict.items():
-    values.append(len(v))
+all_triples, all_after_2023_triples = 0, 0
+for file_path in triples_with_relation_path:
+    with open(file_path) as f:
+        new_triple_list = json.load(f)
 
-# Plot the histogram
-plt.hist(values, bins=100, log=True)
-plt.savefig("test.png")
+    print(file_path)
+    print(len(new_triple_list))
+    all_triples += len(new_triple_list)
 
-sorted_dict = dict(sorted(Object_dict.items(), key=lambda item: len(item[1])))
+    part_triples_after_2023 = 0
 
-for k ,v in sorted_dict.items():
-    print(k, len(v))
+    for triple in new_triple_list:
+        Trikeys = triple["extract relation pairs"].keys()
+        Trikeys = [int(num) for num in Trikeys]
+        if np.min(np.array(Trikeys)) > 28000000:
+            # print(1)
+            all_after_2023_triples += 1
+            part_triples_after_2023 += 1
 
-with open('data.txt', 'w') as f:
-    for k, v in sorted_dict.items():
-        f.write(f'{k}: {len(v)}\n')
+            Triple_list_after_2020.append(triple)
+
+    print(part_triples_after_2023)
+
+print(all_triples, all_after_2023_triples)
+
+with open("Triple_list_after_2020") as f:
+    new_triple_list = json.dump(Triple_list_after_2020, f)
+
+
+# print(time.asctime(time.localtime()))
+#
+# with open('Extract Relation/Extract Result/e_result/BioLAMA/ctd/CD1/Object_dict.json') as f:
+#     Object_dict = json.load(f)
+#
+# print(time.asctime(time.localtime()))
+#
+# values = []
+# for k, v in Object_dict.items():
+#     values.append(len(v))
+#
+# # Plot the histogram
+# plt.hist(values, bins=100, log=True)
+# plt.savefig("test.png")
+#
+# sorted_dict = dict(sorted(Object_dict.items(), key=lambda item: len(item[1])))
+#
+# for k ,v in sorted_dict.items():
+#     print(k, len(v))
+#
+# with open('data.txt', 'w') as f:
+#     for k, v in sorted_dict.items():
+#         f.write(f'{k}: {len(v)}\n')
 
 # print(len(sorted_dict["cancer"]))
 # # print(len(sorted_dict["of"]))
