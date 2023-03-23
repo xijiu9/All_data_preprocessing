@@ -9,7 +9,7 @@ import copy
 import pyfiglet
 
 
-Relation_path = sorted(list(set(glob.glob("Extract Result/e_result/BioLAMA/umls/*/", recursive=True))))
+Relation_path = sorted(list(set(glob.glob("Extract Result/e_result/MedLAMA/medlama/*/", recursive=True))))
 
 Relation_path.reverse()
 
@@ -85,6 +85,7 @@ for file_path in Relation_path:
         union_objs_pmid = set([])
         union_objs_dict = {}
         for obj in objs:
+            obj = obj.lower()
             words = tokenizer.tokenize(obj)
             for idx, word in enumerate(words):
                 word = word.lower()
@@ -105,6 +106,7 @@ for file_path in Relation_path:
                         article = Pubmed_data[pmid][0].replace('[', '').replace(']', '') + Pubmed_data[pmid][1]
                     else:
                         article = Pubmed_data[pmid][0].replace('[', '').replace(']', '') + '. ' + Pubmed_data[pmid][1]
+                    article = article.lower()
 
                     if obj in article:
                         union_objs_pmid.add(pmid)
@@ -119,6 +121,7 @@ for file_path in Relation_path:
         union_subs_pmid = set([])
         union_subs_dict = {}
         for sub in subs:
+            sub = sub.lower()
             words = tokenizer.tokenize(sub)
             for idx, word in enumerate(words):
                 # print(word)
@@ -141,6 +144,7 @@ for file_path in Relation_path:
                         article = Pubmed_data[pmid][0].replace('[', '').replace(']', '') + Pubmed_data[pmid][1]
                     else:
                         article = Pubmed_data[pmid][0].replace('[', '').replace(']', '') + '. ' + Pubmed_data[pmid][1]
+                    article = article.lower()
 
                     if sub in article:
                         union_subs_pmid.add(pmid)
@@ -153,10 +157,12 @@ for file_path in Relation_path:
             #     print("SUB ", len(actual_common_sub_pmid), list(actual_common_sub_pmid)[:5], list(actual_common_sub_pmid)[-5:])
 
 
+
         union_relation_pmid = set(union_subs_pmid).intersection(set(union_objs_pmid))
+
         # print("RELATION ", len(union_relation_pmid), list(union_relation_pmid)[:5], list(union_relation_pmid)[-5:])
         if len(union_relation_pmid):
-            print(objs[0] + "  " + subs[0])
+            # print(objs[0] + "  " + subs[0])
 
             new_triple = triple.copy()
             new_triple["extract relation pairs"] = {}

@@ -13,6 +13,7 @@ from utils import (
     convert_1d_list_to_2d
 )
 
+
 # We remove duplicates of the predictions before evaluation.
 # We consider it to be duplicate when the normalized predictions are the same 
 def remove_duplicate_preds_probs(preds_probs):
@@ -27,20 +28,20 @@ def remove_duplicate_preds_probs(preds_probs):
             normalized_preds.append(normalized_pred)
 
     # initialize new_preds_probs
-    new_preds_probs = [('',0)] * len(preds_probs)
-    
+    new_preds_probs = [('', 0)] * len(preds_probs)
+
     # fill in the preds and probs
     for i, (pred, prob) in enumerate(tmp.items()):
         new_preds_probs[i] = (pred, prob)
 
     return new_preds_probs
 
+
 class Decoder():
     def __init__(self, model, tokenizer, init_method, iter_method, MAX_ITER, BEAM_SIZE,
-                 verbose=True):
-        print(f"init_method={init_method} iter_method={iter_method} MAX_ITER={MAX_ITER} BEAM_SIZE={BEAM_SIZE}")
-        self.model = model # bert model
-        self.tokenizer = tokenizer # bert tokenizer
+                 verbose=True, batch_size=0):
+        self.model = model  # bert model
+        self.tokenizer = tokenizer  # bert tokenizer
 
         self.MASK_IDX = self.tokenizer.mask_token_id
         self.PAD_IDX = self.tokenizer.pad_token_id
@@ -54,7 +55,7 @@ class Decoder():
             assert self.tokenizer.convert_ids_to_tokens(self.PAD_IDX) == self.pad_token
             assert self.tokenizer.convert_ids_to_tokens(self.UNK_IDX) == self.unk_token
 
-        elif isinstance(tokenizer, RobertaTokenizer): 
+        elif isinstance(tokenizer, RobertaTokenizer):
             self.mask_token = '<mask>'
             self.pad_token = '<pad>'
             self.unk_token = '<unk>'
@@ -72,11 +73,12 @@ class Decoder():
         self.BEAM_SIZE = BEAM_SIZE
 
         self.sentence_printed = not verbose
+        self.batch_size = batch_size
 
         # import IPython
         # IPython.embed()
 
-    def set_model(self,model):
+    def set_model(self, model):
         self.model = model
 
     def append_paddings(self, sentences):
@@ -86,7 +88,7 @@ class Decoder():
             tokenized_sentence = self.tokenizer.encode(sentence)
             tokenized_sentences.append(tokenized_sentence)
 
-        len_max = len(max(tokenized_sentences, key=lambda x:len(x)))
+        len_max = len(max(tokenized_sentences, key=lambda x: len(x)))
         # print("len_max", len_max)
         for tokenized_sentence in tokenized_sentences:
             tokenized_sentence += [self.PAD_IDX] * (len_max - len(tokenized_sentence))
@@ -100,11 +102,6 @@ class Decoder():
         # Append [PAD]s next to [SEP] by max length in the batch
         sentences = self.append_paddings(sentences)
 
-        # for printing only once
-        if self.sentence_printed == False:
-            print(sentences[:5])
-            self.sentence_printed = True
-
         inp_tensor = torch.tensor(sentences)
         attention_mask = inp_tensor.ne(self.PAD_IDX).long()
         mask_ind = inp_tensor.eq(self.MASK_IDX).long()
@@ -114,15 +111,12 @@ class Decoder():
             attention_mask = attention_mask.cuda()
             mask_ind = mask_ind.cuda()
 
-        # 1 = 1
-        # SHAPE: (1, num_mask, seq_len)
-        inp_tensor = inp_tensor.view(1,1,-1)
-        attention_mask = attention_mask.view(1,1,-1)
-        mask_ind = mask_ind.view(1,1,-1)
+        inp_tensor = inp_tensor.view(self.batch_size, 1, -1)
+        attention_mask = attention_mask.view(self.batch_size, 1, -1)
+        mask_ind = mask_ind.view(self.batch_size, 1, -1)
 
-
-        out_tensors=[]
-        logprobs=[]
+        out_tensors = []
+        logprobs = []
         # decode
         # SHAPE: (beam_size, 1, seq_len)
         b_out_tensor, b_logprob, iter = iter_decode_beam_search(
@@ -130,11 +124,10 @@ class Decoder():
             restrict_vocab=[], mask_value=self.MASK_IDX,
             init_method=self.init_method, iter_method=self.iter_method,
             max_iter=self.MAX_ITER, tokenizer=self.tokenizer,
-            reprob=False, beam_size=self.BEAM_SIZE, tokenized_probe_text=self.tokenized_probe_text)
+            reprob=False, beam_size=self.BEAM_SIZE, tokenized_probe_text=self.tokenized_probe_text, batch_size=self.batch_size)
 
-        # SHAPE: (1, beam_size, seq_len)
-        b_out_tensor = b_out_tensor.permute(1,0,2)
-        b_logprob = b_logprob.permute(1,0,2)
+        b_out_tensor = b_out_tensor.permute(1, 0, 2)
+        b_logprob = b_logprob.permute(1, 0, 2)
 
         out_tensors.append(b_out_tensor)
         logprobs.append(b_logprob)
@@ -170,59 +163,45 @@ class Decoder():
 
         return all_preds, all_probs
 
-    def decode(self, input, probe_text=''):
+    def decode(self, input, probe_texts=''):
         """
         input: a list of lists of sentences with [MASK]
         output: a list of lists of predictions
         """
-        self.tokenized_probe_text = self.tokenizer.encode(probe_text)[1:-1]
 
         original_sent = input
-        sentences = []
+        flat_query_batch = []
 
-        for i in range(len(self.tokenized_probe_text), len(self.tokenized_probe_text) + 1):
-            # fill in subject
-            mask_sequence = (f"{self.mask_token} " * i).strip()
-            sentence = original_sent.replace('[Y]', mask_sequence)
-            sentences.append(sentence)
+        self.tokenized_probe_text = []
+        tokenized_max_length = 0
+        for probe_text in probe_texts:
+            tokenized = self.tokenizer.encode(probe_text)[1:-1]
+            tokenized_max_length = max(tokenized_max_length, len(tokenized))
+            self.tokenized_probe_text.append(tokenized)
+            for i in range(len(tokenized), len(tokenized) + 1):
+                # fill in subject
+                mask_sequence = (f"{self.mask_token} " * i).strip()
+                sentence = original_sent.replace('[Y]', mask_sequence)
+                flat_query_batch.append(sentence)
 
-        input = [sentences]
+        fill_out_tensor = torch.zeros(len(self.tokenized_probe_text), tokenized_max_length)
+        # Loop through the list and fill the tensor with the values
+        for i, row in enumerate(self.tokenized_probe_text):
+            fill_out_tensor[i, :len(row)] = torch.tensor(row)
+        self.tokenized_probe_text = fill_out_tensor
+        # print(self.tokenized_probe_text)
 
-        all_preds = []
-        all_probs = []
-
-        max_length = len(input[0])
-
-        # flat for batch processing
-        flat_query_batch = convert_2d_list_to_1d(input)
-
-        # print("decode flat_query batch, ", flat_query_batch)
         flat_preds, flat_probs = self.decode_sentences(flat_query_batch)
-        preds = convert_1d_list_to_2d(flat_preds, max_length)
-        probs = convert_1d_list_to_2d(flat_probs, max_length)
 
-        all_preds += preds
-        all_probs += probs
-        
-        # Sort preds based on probs
-        # The output format will be like [[('pain', 0.37236136611128684)]]
         all_preds_probs = []
-        for preds, probs in zip(all_preds, all_probs):
-            flat_preds = convert_2d_list_to_1d(preds)
-            flat_probs = convert_2d_list_to_1d(probs)
-
-            preds_probs = list(zip(flat_preds, flat_probs))
-            preds_probs = sorted(preds_probs, key=lambda x: x[1], reverse=True)
-
-            # Some predictions are decoded into the same output
-            # These duplicates should be removed
-            preds_probs = remove_duplicate_preds_probs(preds_probs)
-            all_preds_probs.append(preds_probs)
+        for pred, prob in zip(flat_preds, flat_probs):
+            all_preds_probs.append([pred[0], prob[0]])
 
         return all_preds_probs
 
+
 # https://github.com/jzbjyb/X-FACTR
-def merge_subwords(ids: Union[np.ndarray, List[int]], tokenizer, merge: bool=False) -> str:
+def merge_subwords(ids: Union[np.ndarray, List[int]], tokenizer, merge: bool = False) -> str:
     subwords = list(tokenizer.convert_ids_to_tokens(ids))
     if not merge:
         return subwords
@@ -243,10 +222,11 @@ def merge_subwords(ids: Union[np.ndarray, List[int]], tokenizer, merge: bool=Fal
                     merged_subword += '' + subword
             else:
                 print('need to check tokenizer!')
-                assert 0 
+                assert 0
 
         merged_subword = merged_subword.strip()
         return merged_subword
+
 
 def model_prediction_wrap(model, inp_tensor, attention_mask):
     with torch.no_grad():
@@ -264,6 +244,7 @@ def model_prediction_wrap(model, inp_tensor, attention_mask):
 
     return logit
 
+
 def iter_decode_beam_search(model,
                             inp_tensor: torch.LongTensor,  # SHAPE: (1, seq_len)
                             raw_mask: torch.LongTensor,  # SHAPE: (1, seq_len)
@@ -271,12 +252,13 @@ def iter_decode_beam_search(model,
                             restrict_vocab: List[int] = None,
                             mask_value: int = 0,  # indicate which value is used for mask
                             max_iter: int = None,  # max number of iteration
-                            tokenizer = None,
-                            init_method: str='independent',
-                            iter_method: str='none',
+                            tokenizer=None,
+                            init_method: str = 'independent',
+                            iter_method: str = 'none',
                             reprob: bool = False,  # recompute the prob finally
                             beam_size: int = 5,
-                            tokenized_probe_text=''
+                            tokenized_probe_text='',
+                            batch_size: int = 0,
                             ) -> Tuple[torch.LongTensor, torch.Tensor, int]:  # HAPE: (1, seq_len)
     '''
     Masks must be consecutive.
@@ -321,9 +303,16 @@ def iter_decode_beam_search(model,
 
             if restrict_vocab is not None:
                 logit[:, :, restrict_vocab] = float('-inf')
-            # SHAPE: (1, seq_len, beam_size)
-            # new_out_logprobs, new_out_tensors = logit.log_softmax(-1).topk(beam_size, dim=-1)
-            new_out_logprobs, new_out_tensors = logit.log_softmax(-1)[:, :, tokenized_probe_text[iter]].unsqueeze(2), torch.Tensor([[[tokenized_probe_text[iter]]]]).to(logit).to(torch.int)
+
+            new_out_logprobs = torch.gather(logit.log_softmax(-1), dim=-1,
+                                             index=tokenized_probe_text[:, iter].to(inp_tensor).unsqueeze(1).unsqueeze(1).repeat(1, logit.shape[1], 1))
+            new_out_tensors = tokenized_probe_text[:, iter].unsqueeze(0).unsqueeze(0).to(logit).to(torch.int)
+
+            if init_method == 'confidence':
+                # mask out non-mask positions
+                new_out_logprobs = new_out_logprobs + mask_mask.unsqueeze(-1).float().log()
+                new_out_logprobs = new_out_logprobs.view(-1, sl * beam_size)
+                new_out_tensors = new_out_tensors.view(-1, sl * beam_size)
 
             if init_method == 'independent':
                 new_out_logprob = new_out_logprobs[:, :, 0]
@@ -331,12 +320,17 @@ def iter_decode_beam_search(model,
                 # SHAPE: (1, seq_len)
                 changes = (out_tensor * mask_mask).ne(new_out_tensor * mask_mask)
             elif init_method == 'order':  # only modify the left-most one.
-                new_out_logprob = new_out_logprobs[:, :, 0]
-                new_out_tensor = new_out_tensors[:, :, 0]
+                new_out_logprob = new_out_logprobs.squeeze(2)
+                new_out_tensor = new_out_tensors.reshape(new_out_tensors.shape[-1], 1)
                 # SHAPE: (1, seq_len)
                 changes = (out_tensor * mask_mask).ne(new_out_tensor * mask_mask)
-                changes = changes & torch.cat([changes.new_ones((1, 1)), ~changes], 1)[:, :-1]
 
+                # import IPython
+                # print(337)
+                # IPython.embed()
+                changes = changes & torch.cat([changes.new_ones((batch_size, 1)), ~changes], 1)[:, :-1]
+
+                # exit(0)
             else:
                 raise NotImplementedError
 
@@ -381,14 +375,6 @@ def iter_decode_beam_search(model,
         # SHAPE: (all_beam_size, 1)
         not_dups = torch.stack(not_dups, -1)
 
-        # select top
-        # SHAPE: (all_beam_size, 1)
-        beam_score = (next_out_logprobs * init_mask.unsqueeze(0).float() +
-                      not_dups.unsqueeze(-1).float().log()).sum(-1)
-        # SHAPE: (beam_size, 1, seq_len)
-        beam_top = beam_score.topk(beam_size, dim=0)[1].view(-1, 1, 1).repeat(1, 1, sl)
-        next_out_logprobs = torch.gather(next_out_logprobs, 0, beam_top)
-        next_out_tensors = torch.gather(next_out_tensors, 0, beam_top)
 
         # stop condition for other type of iter
         if next_out_tensors.size(0) == out_tensors.size(0) and next_out_tensors.eq(out_tensors).all():
@@ -405,6 +391,10 @@ def iter_decode_beam_search(model,
         out_tensors = next_out_tensors
         out_logprobs = next_out_logprobs
 
+        # import IPython
+        # print(419)
+        # IPython.embed()
+
         iter += 1
         if max_iter and iter >= max_iter:  # max_iter can be zero
             stop = True
@@ -413,13 +403,14 @@ def iter_decode_beam_search(model,
 
     return out_tensors, out_logprobs, iter
 
+
 def compute_likelihood(model,
                        inp_tensor: torch.LongTensor,  # SHAPE: (1, seq_len)
                        lp_tensor: torch.Tensor,  # SHAPE: (1, seq_len)
                        mask_tensor: torch.LongTensor,  # SHAPE: (1, seq_len)
                        attention_mask: torch.LongTensor,  # SHAPE: (1, seq_len))
                        restrict_vocab: List[int] = None,
-                       mask_value: int=0,  # indicate which value is used for mask
+                       mask_value: int = 0,  # indicate which value is used for mask
                        ) -> torch.Tensor:  # SHAPE: (1, seq_len)
     '''
     Masks must be consecutive.
@@ -446,7 +437,10 @@ def compute_likelihood(model,
     lp_tensor = (1 - mask_tensor).float() * lp_tensor + mask_tensor.float() * lp
     return lp_tensor.detach()
 
+
 _tie_breaking: Dict[int, torch.Tensor] = {}
+
+
 def get_tie_breaking(dim: int):
     if dim not in _tie_breaking:
         _tie_breaking[dim] = torch.zeros(dim).uniform_(0, 1e-5)

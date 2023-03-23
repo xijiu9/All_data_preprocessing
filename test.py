@@ -11,37 +11,56 @@ import numpy as np
 
 print(time.asctime(time.localtime()))
 
-triples_with_relation_path = sorted(glob.glob("Extract Relation/Triple with Relation/*/*/*/New_Triple_list.json"))
+object_path = "/m-ent1/ent1/xihc20/ALL_DATA_PREPROCESSING/Extract Relation/Extract Result/e_result/BioLAMA/ctd/CD1/Object_dict.json"
+subject_path = "/m-ent1/ent1/xihc20/ALL_DATA_PREPROCESSING/Extract Relation/Extract Result/e_result/BioLAMA/ctd/CD1/Subject_dict.json"
+with open(object_path) as f:
+    Object_dict = json.load(f)
+with open(subject_path) as f:
+    Subject_dict = json.load(f)
+print(time.asctime(time.localtime()))
 
-Triple_list_after_2020 = []
+pcos = Object_dict["pcos"]
+deso = Subject_dict["desogestrel"]
 
-all_triples, all_after_2023_triples = 0, 0
-for file_path in triples_with_relation_path:
-    with open(file_path) as f:
-        new_triple_list = json.load(f)
+print(pcos)
+print(deso)
+print(len(pcos))
+print(len(deso))
 
-    print(file_path)
-    print(len(new_triple_list))
-    all_triples += len(new_triple_list)
+print(set(pcos).intersection(set(deso)))
 
-    part_triples_after_2023 = 0
-
-    for triple in new_triple_list:
-        Trikeys = triple["extract relation pairs"].keys()
-        Trikeys = [int(num) for num in Trikeys]
-        if np.min(np.array(Trikeys)) > 28000000:
-            # print(1)
-            all_after_2023_triples += 1
-            part_triples_after_2023 += 1
-
-            Triple_list_after_2020.append(triple)
-
-    print(part_triples_after_2023)
-
-print(all_triples, all_after_2023_triples)
-
-with open("Triple_list_after_2020") as f:
-    new_triple_list = json.dump(Triple_list_after_2020, f)
+#
+# triples_with_relation_path = sorted(glob.glob("Extract Relation/Triple with Relation/*/*/*/New_Triple_list.json"))
+#
+# Triple_list_after_2020 = []
+#
+# all_triples, all_after_2023_triples = 0, 0
+# for file_path in triples_with_relation_path:
+#     with open(file_path) as f:
+#         new_triple_list = json.load(f)
+#
+#     print(file_path)
+#     print(len(new_triple_list))
+#     all_triples += len(new_triple_list)
+#
+#     part_triples_after_2023 = 0
+#
+#     for triple in new_triple_list:
+#         Trikeys = triple["extract relation pairs"].keys()
+#         Trikeys = [int(num) for num in Trikeys]
+#         if np.min(np.array(Trikeys)) > 28000000:
+#             # print(1)
+#             all_after_2023_triples += 1
+#             part_triples_after_2023 += 1
+#
+#             Triple_list_after_2020.append(triple)
+#
+#     print(part_triples_after_2023)
+#
+# print(all_triples, all_after_2023_triples)
+#
+# with open("Triple_list_after_2020") as f:
+#     new_triple_list = json.dump(Triple_list_after_2020, f)
 
 
 # print(time.asctime(time.localtime()))
