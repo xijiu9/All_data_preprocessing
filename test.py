@@ -9,25 +9,79 @@ import matplotlib.pyplot as plt
 import IPython
 import numpy as np
 
-print(time.asctime(time.localtime()))
+# print(time.asctime(time.localtime()))
+#
+# data_path = "/m-ent1/ent1/xihc20/ALL_DATA_PREPROCESSING/Extract_Relation/Triple with Relation/BioLAMA/ctd/CD1/New_Triple_list.json"
+# with open(data_path) as f:
+#     Data = json.load(f)
+#
+# print(len(Data))
+#
+# for triple in Data:
+#     if triple["subject_index"] == "C118874":
+#         print(triple)
 
-object_path = "/m-ent1/ent1/xihc20/ALL_DATA_PREPROCESSING/Extract Relation/Extract Result/e_result/BioLAMA/ctd/CD1/Object_dict.json"
-subject_path = "/m-ent1/ent1/xihc20/ALL_DATA_PREPROCESSING/Extract Relation/Extract Result/e_result/BioLAMA/ctd/CD1/Subject_dict.json"
+
+object_path = "/m-ent1/ent1/xihc20/ALL_DATA_PREPROCESSING/Extract_Relation/Words_PMID/Single_intersection/" \
+              "MedLAMA/medlama/disease_has_normal_cell_origin_1000/Object_dict.json"
+subject_path = "/m-ent1/ent1/xihc20/ALL_DATA_PREPROCESSING/Extract_Relation/Words_PMID/Single_intersection/" \
+               "MedLAMA/medlama/disease_has_normal_cell_origin_1000/Subject_dict.json"
 with open(object_path) as f:
     Object_dict = json.load(f)
 with open(subject_path) as f:
     Subject_dict = json.load(f)
+print(len(Object_dict.keys()))
+print(len(Subject_dict.keys()))
 print(time.asctime(time.localtime()))
 
-pcos = Object_dict["pcos"]
-deso = Subject_dict["desogestrel"]
+Obj_keys, Sub_keys = list(Object_dict.keys()), list(Subject_dict.keys())
 
-print(pcos)
-print(deso)
-print(len(pcos))
-print(len(deso))
+print(Obj_keys[:3])
+print(Sub_keys[:3])
 
-print(set(pcos).intersection(set(deso)))
+print(len(Subject_dict["Metastatic Oral Cavity Squamous Cell Carcinoma".lower()]))
+print(len(Object_dict["Squamous Cell".lower()]))
+
+SS, OO = Subject_dict["Metastatic Oral Cavity Squamous Cell Carcinoma".lower()], Object_dict["Squamous Cell".lower()]
+
+common_SO = set(SS).intersection(set(OO))
+print(common_SO)
+# print(len(Object_dict["liver neoplasms, experimental"]))
+# print(len(Object_dict["atopic eczema"]))
+# print(len(Object_dict["neurogenic hoarseness"]))
+
+# print(len(Subject_dict["herphonal"]))
+# print(len(Subject_dict["agent, anti-inflammatory"]))
+# print(len(Subject_dict["dimiracetam"]))
+
+# print(Subject_dict["dimiracetam"][:10])
+
+
+
+
+
+# print(time.asctime(time.localtime()))
+#
+# object_path = "/m-ent1/ent1/xihc20/ALL_DATA_PREPROCESSING/Extract_Relation/Extract Result/e_result/BioLAMA/ctd/CD1/Object_dict.json"
+# subject_path = "/m-ent1/ent1/xihc20/ALL_DATA_PREPROCESSING/Extract_Relation/Extract Result/e_result/BioLAMA/ctd/CD1/Subject_dict.json"
+# with open(object_path) as f:
+#     Object_dict = json.load(f)
+# with open(subject_path) as f:
+#     Subject_dict = json.load(f)
+# print(time.asctime(time.localtime()))
+#
+# pcos = Object_dict["covid-19"]
+# deso = Subject_dict["rupintrivir"]
+#
+# print(pcos)
+# print(deso)
+# print(len(pcos))
+# print(len(deso))
+#
+# print(set(pcos).intersection(set(deso)))
+#
+# import IPython
+# IPython.embed()
 
 #
 # triples_with_relation_path = sorted(glob.glob("Extract Relation/Triple with Relation/*/*/*/New_Triple_list.json"))

@@ -9,7 +9,7 @@ import copy
 import pyfiglet
 
 
-Relation_path = sorted(list(set(glob.glob("Extract Result/e_result/MedLAMA/medlama/*/", recursive=True))))
+Relation_path = sorted(list(set(glob.glob("Extract Result/e_result/BioLAMA/wikidata/*/", recursive=True))))
 
 Relation_path.reverse()
 
@@ -65,6 +65,7 @@ for file_path in Relation_path:
 
     Triple_list_with_relation = []
     for triple in tqdm(Triple_list):
+
         objs = triple["object"]
         obj_syns = triple["object_synonym"]
 
@@ -155,8 +156,6 @@ for file_path in Relation_path:
             #     print("SUB ", sub)
             #     print("SUB ", len(common_sub_pmid), list(common_sub_pmid)[:5], list(common_sub_pmid)[-5:])
             #     print("SUB ", len(actual_common_sub_pmid), list(actual_common_sub_pmid)[:5], list(actual_common_sub_pmid)[-5:])
-
-
 
         union_relation_pmid = set(union_subs_pmid).intersection(set(union_objs_pmid))
 

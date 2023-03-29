@@ -18,8 +18,11 @@ len_list = []
 
 all_triples, all_after_2023_triples = 0, 0
 for file_path in triples_with_relation_path:
-    with open(file_path, "r") as f:
-        new_triple_list = json.load(f)
+    try:
+        with open(file_path, "r") as f:
+            new_triple_list = json.load(f)
+    except:
+        continue
 
     print(file_path)
     print(len(new_triple_list))
@@ -27,7 +30,7 @@ for file_path in triples_with_relation_path:
 
     part_triples_after_2023 = 0
 
-    for triple in new_triple_list:
+    for triple in tqdm(new_triple_list):
         Trikeys = triple["extract relation pairs"].keys()
         Trikeys = [int(num) for num in Trikeys]
 

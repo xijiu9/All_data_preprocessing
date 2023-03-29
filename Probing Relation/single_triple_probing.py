@@ -103,7 +103,7 @@ def get_months(start_date_str, end_date_str, train_mode=''):
             if current_quarter >= min_quarter and current_quarter < max_quarter:
                 quarter_str = "q_{}_{}".format(current_quarter.strftime("%Y"), (current_quarter.month - 1) // 3 + 1)
                 valid_quarters.append(quarter_str)
-            current_quarter += timedelta(days=365 / 4)
+            current_quarter += timedelta(days=365 // 4)
 
         return valid_quarters
 
@@ -128,7 +128,7 @@ def get_months(start_date_str, end_date_str, train_mode=''):
                 half_year_str = "h_{}_{}".format(current_half_year.strftime("%Y"),
                                                  1 if current_half_year.month <= 6 else 2)
                 valid_half_years.append(half_year_str)
-            current_half_year += timedelta(days=365 / 2)
+            current_half_year += timedelta(days=365 // 2)
 
         return valid_half_years
 
@@ -146,7 +146,7 @@ def main():
 
     p_args = parser.parse_args()
 
-    with open("../Extract Relation/Triple_list_after_2020.json", "r") as f:
+    with open("../Extract_Relation/Triple_list_after_2020.json", "r") as f:
         Triple_list = json.load(f)
     # with open("Summarize/Object_list.json", "r") as f:
     #     Object_list = json.load(f)
@@ -154,13 +154,16 @@ def main():
     mp.set_start_method('spawn')
 
     rank_dict = {}
+    model_dict = {}
 
     for triple in Triple_list:
-        # if "UR254" not in triple["data_short"]: ## IMPORTANT
-        #     continue
+        if "medlama" not in triple["data_short"]: ## IMPORTANT
+            continue
 
 
         min_time, max_time = triple["extract relation pairs"]["min time"], triple["extract relation pairs"]["max time"]
+
+        min_time, max_time = "2020/01/01 00:00", "2022/12/31 23:59"# NEW
         intermediate_months = get_months(min_time, max_time, p_args.train_mode)
 
         triple_order_dict = {}
@@ -171,20 +174,28 @@ def main():
             rank_dict[data_short] = {}
 
         first_relation = triple["extract relation pairs"][list(triple["extract relation pairs"].keys())[0]]
-        Triple_feature = first_relation["sub"] + ' & ' + first_relation["obj"]
-        with open(f"../Extract Relation/Triple_result/{data_short}/Object_list.json", "r") as f:
+        Triple_feature = first_relation["sub"][0] + ' & ' + first_relation["obj"][0]
+        with open(f"../Extract_Relation/Triple_result/{data_short}/Object_list.json", "r") as f:
             Object_list = json.load(f)
 
         for month in intermediate_months:
-            if month not in rank_dict[data_short].keys():
+            # if month not in rank_dict[data_short].keys():
+            if True: # NEW
                 triple_order_dict[f"{month}"] = {}
                 model_path = f"../../SHENG/result/{month}/pretrain/"
-                print(f'load model {data_short} at month {month}, triple feature {Triple_feature}')
-                tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
-                lm_model = AutoModelWithLMHead.from_pretrained(model_path)
-                if torch.cuda.is_available():
-                    lm_model = lm_model.cuda()
 
+                if month not in model_dict.keys():
+                    print(f'load model {data_short} at month {month}, triple feature {Triple_feature}')
+                    tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
+                    lm_model = AutoModelWithLMHead.from_pretrained(model_path)
+                    if torch.cuda.is_available():
+                        lm_model = lm_model.cuda()
+
+                    model_dict[month] = [tokenizer, lm_model]
+                else:
+                    print(f'Have model {data_short} at month {month}, triple feature {Triple_feature}')
+                    tokenizer, lm_model = model_dict[month]
+                    
                 # make sure this is only an evaluation
                 lm_model.eval()
                 for param in lm_model.parameters():
@@ -201,17 +212,22 @@ def main():
                     batch_size=p_args.batch_size
                 )
 
-                for i in tqdm(range(0, len(Object_list), p_args.batch_size)):
+                for i in range(0, len(Object_list), p_args.batch_size):
                     batch = Object_list[i:i + p_args.batch_size]
                     probe_texts = []
                     for probe_text in batch:
                         probe_texts.append(probe_text)
 
+                    if probe_text.lower() != first_relation["obj"][0] or "/" in probe_text: # NEW
+                        continue
+
+                    print(probe_text)
+
                     for _ in range(p_args.batch_size - len(probe_texts)):
                         probe_texts.append(batch[-1])
 
                     first_relation = triple["extract relation pairs"][list(triple["extract relation pairs"].keys())[0]]
-                    text = triple["relation_prompt"].replace("[X]", first_relation["sub"])
+                    text = triple["relation_prompt"].replace("[X]", first_relation["sub"][0])
 
                     all_preds_probs = decoder.decode(text, probe_texts=probe_texts) # topk predictions
 
@@ -219,9 +235,9 @@ def main():
                         triple_order_dict[f"{month}"][preds_probs[0]] = preds_probs[1]
 
                 rank_dict[data_short][month] = triple_order_dict[month]
-            else:
-                print(f'Skip a Run {data_short} at month {month}, triple feature {Triple_feature}')
-                triple_order_dict[f"{month}"] = rank_dict[data_short][f"{month}"]
+            # else:
+            #     print(f'Skip a Run {data_short} at month {month}, triple feature {Triple_feature}')
+            #     triple_order_dict[f"{month}"] = rank_dict[data_short][f"{month}"]
 
             triple_order_dict[f"{month}"] = dict(sorted(triple_order_dict[f"{month}"].items(), key=lambda item: item[1]))
             for k, kv in triple_order_dict.items():
@@ -232,14 +248,10 @@ def main():
             with open(f"Rank_result/{p_args.train_mode}/{data_short}/{Triple_feature}/Rank_dict.json", "w") as f:
                 json.dump(triple_order_dict, f, indent=4)
 
-            time.sleep(2)
+            with open(f"Rank_result/{p_args.train_mode}/{data_short}/{Triple_feature}/Triple_save.json", "w") as f:
+                json.dump(triple, f, indent=4) # NEW
+            # time.sleep(2)
 
-# def process_object(probe_text, shard_dict_month, triple, month, decoder):
-#     first_relation = triple["extract relation pairs"][list(triple["extract relation pairs"].keys())[0]]
-#     text = triple["relation_prompt"].replace("[x]", first_relation["sub"])
-#     all_preds_probs = decoder.decode(text, probe_text=probe_text)
-#     preds_probs = all_preds_probs[0][0]
-#     shard_dict_month[preds_probs[0]] = preds_probs[1]
 
 
 
