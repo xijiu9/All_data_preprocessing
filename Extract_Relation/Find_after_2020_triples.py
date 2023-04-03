@@ -52,6 +52,10 @@ for file_path in triples_with_relation_path:
                 triple["extract relation pairs"][f"{key}"]["time"] = time_map[f"{key}"]["full"]["EDAT"]
                 year, month, day = int(time_map[f"{key}"]["full"]["EDAT"][0:4]), int(time_map[f"{key}"]["full"]["EDAT"][5:7]), int(time_map[f"{key}"]["full"]["EDAT"][8:10])
 
+                if year <= 2019:
+                    min_year = year
+                    break
+
                 min_year = min(year, min_year)
                 max_year = max(year, max_year)
                 min_date = min(time_map[f"{key}"]["full"]["EDAT"], min_date)

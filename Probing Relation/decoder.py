@@ -119,6 +119,7 @@ class Decoder():
         logprobs = []
         # decode
         # SHAPE: (beam_size, 1, seq_len)
+
         b_out_tensor, b_logprob, iter = iter_decode_beam_search(
             self.model, inp_tensor[:, 0, :], mask_ind[:, 0, :], attention_mask[:, 0, :],
             restrict_vocab=[], mask_value=self.MASK_IDX,
@@ -174,14 +175,14 @@ class Decoder():
 
         self.tokenized_probe_text = []
         tokenized_max_length = 0
-        for probe_text in probe_texts:
+        for idx, probe_text in enumerate(probe_texts):
             tokenized = self.tokenizer.encode(probe_text)[1:-1]
             tokenized_max_length = max(tokenized_max_length, len(tokenized))
             self.tokenized_probe_text.append(tokenized)
             for i in range(len(tokenized), len(tokenized) + 1):
                 # fill in subject
                 mask_sequence = (f"{self.mask_token} " * i).strip()
-                sentence = original_sent.replace('[Y]', mask_sequence)
+                sentence = original_sent[idx].replace('[Y]', mask_sequence)
                 flat_query_batch.append(sentence)
 
         fill_out_tensor = torch.zeros(len(self.tokenized_probe_text), tokenized_max_length)
@@ -315,8 +316,8 @@ def iter_decode_beam_search(model,
                 new_out_tensors = new_out_tensors.view(-1, sl * beam_size)
 
             if init_method == 'independent':
-                new_out_logprob = new_out_logprobs[:, :, 0]
-                new_out_tensor = new_out_tensors[:, :, 0]
+                new_out_logprob = new_out_logprobs.squeeze(2)
+                new_out_tensor = new_out_tensors.reshape(new_out_tensors.shape[-1], 1)
                 # SHAPE: (1, seq_len)
                 changes = (out_tensor * mask_mask).ne(new_out_tensor * mask_mask)
             elif init_method == 'order':  # only modify the left-most one.

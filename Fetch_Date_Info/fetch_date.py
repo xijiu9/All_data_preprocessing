@@ -17,6 +17,7 @@ def fetch_pubmed_records(pubmed_ids):
 def get_paper_release_times(records):
     release_times = {}
     for record in records:
+        print(record)
         medline_dict = dict([re.split(r'\s*-\s*', line.strip(), maxsplit=1) for line in record.splitlines() if line.strip() and "-" in line])
 
         if "EDAT" in medline_dict:
@@ -25,6 +26,8 @@ def get_paper_release_times(records):
                                                    "title broken": medline_dict["TI"] if "TI" in medline_dict.keys() else medline_dict["BTI"],
                                                    "full": medline_dict}
         else:
+            print(record)
+            print(medline_dict)
             print("wrong for {}".format(records))
             return None
         # print(medline_dict)
@@ -61,7 +64,7 @@ def download(start, end):
 max_article = 37000000
 step_size = 5000
 proc = {}
-proc_num = 10
+proc_num = 1
 
 Success, Fail = 0, 1
 while Fail > 0:

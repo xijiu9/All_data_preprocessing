@@ -28,7 +28,7 @@ def flatten(lst):
             result.extend(flatten(item))
     return result
 
-Relation_path = sorted(list(set(glob.glob("Triple_result/MedLAMA/*/*/", recursive=True))))
+Relation_path = sorted(list(set(glob.glob("Triple_result/BioLAMA/ctd/*/", recursive=True))), reverse=True)
 
 print("The current time is:", time.strftime("%H:%M:%S", time.localtime()), "start loading Pubmed")
 
@@ -54,7 +54,7 @@ for file_path in Relation_path:
     Triple_list_with_relation = []
     for triple in tqdm(Triple_list):
         
-        # if triple["subject_index"] != "C4727684":
+        # if triple["subject_index"] != "C557331":
         #     continue
 
         objs = triple["object"]
@@ -156,7 +156,7 @@ for file_path in Relation_path:
             with open(os.path.join("Triple with Relation", short_path, "New_Triple_list.json"), "w") as f:
                 json.dump(Triple_list_with_relation, f, indent=4)
 
-        # if triple["subject_index"] == "C4727684":
+        # if triple["subject_index"] == "C557331":
         #     break
 
     print(f"Have {len(Triple_list_with_relation)} relations now.")

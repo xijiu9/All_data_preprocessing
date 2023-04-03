@@ -13,25 +13,27 @@ from datetime import datetime, timedelta
 from tqdm import tqdm, trange
 import torch.multiprocessing as mp
 import warnings
-warnings.filterwarnings("ignore", message="your warning message here")
 
+warnings.filterwarnings("ignore", message="your warning message here")
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+
 def print_predictions(sentence, preds_probs):
-    k = min(len(preds_probs),100)
+    k = min(len(preds_probs), 100)
     # print(f"Top {k} predictions")
     print("-------------------------")
     print(f"Rank\tProb\tPred")
     print("-------------------------")
     for i in range(k):
         preds_prob = preds_probs[i]
-        print(f"{i+1}\t{preds_prob[1]:.10f}\t{preds_prob[0]}")
+        print(f"{i + 1}\t{preds_prob[1]:.10f}\t{preds_prob[0]}")
 
     print("-------------------------")
     # print("\n")
     print("Top1 prediction sentence:")
-    print(f"\"{sentence.replace('[Y]',preds_probs[0][0])}\"")
+    print(f"\"{sentence.replace('[Y]', preds_probs[0][0])}\"")
+
 
 # def get_months(start_date_str, end_date_str, train_mode=''):
 #     if train_mode == 'm':
@@ -136,8 +138,8 @@ def get_months(start_date_str, end_date_str, train_mode=''):
 def main():
     parser = argparse.ArgumentParser()
     # parser.add_argument("--text", required=True)
-    parser.add_argument("--init_method", choices=['independent','order'], default='order')
-    parser.add_argument("--iter_method", choices=['none','order','confidence'], default='none')
+    parser.add_argument("--init_method", choices=['independent', 'order'], default='order')
+    parser.add_argument("--iter_method", choices=['none', 'order', 'confidence'], default='none')
     parser.add_argument("--max_iter", type=int, default=10)
     parser.add_argument("--beam_size", type=int, default=1)
     parser.add_argument("--batch_size", type=int, default=1)
@@ -160,7 +162,7 @@ def main():
 
         min_time, max_time = triple["extract relation pairs"]["min time"], triple["extract relation pairs"]["max time"]
 
-        min_time, max_time = "2020/01/01 00:00", "2022/12/31 23:59"# NEW
+        min_time, max_time = "2020/01/01 00:00", "2022/12/31 23:59"  # NEW
         intermediate_months = get_months(min_time, max_time, p_args.train_mode)
 
         triple_order_dict = {}
@@ -172,12 +174,12 @@ def main():
 
         first_relation = triple["extract relation pairs"][list(triple["extract relation pairs"].keys())[0]]
         Triple_feature = first_relation["sub"][0] + ' & ' + first_relation["obj"][0]
-        with open(f"../Extract_Relation/Triple_result/{data_short}/Object_list.json", "r") as f:
-            Object_list = json.load(f)
+        with open(f"../Extract_Relation/Co_occurance/{data_short}/{Triple_feature}/Co_occur.json", "r") as f:
+            Co_occur_list = json.load(f)
 
         for month in intermediate_months:
             # if month not in rank_dict[data_short].keys():
-            if True: # NEW
+            if True:  # NEW
                 triple_order_dict[f"{month}"] = {}
                 model_path = f"../../SHENG/result/{month}/pretrain/"
 
@@ -192,7 +194,7 @@ def main():
                 else:
                     print(f'Have model {data_short} at month {month}, triple feature {Triple_feature}')
                     tokenizer, lm_model = model_dict[month]
-                    
+
                 # make sure this is only an evaluation
                 lm_model.eval()
                 for param in lm_model.parameters():
@@ -209,50 +211,32 @@ def main():
                     batch_size=p_args.batch_size
                 )
 
-                for i in trange(0, len(Object_list), p_args.batch_size):
-                    batch = Object_list[i:i + p_args.batch_size]
-                    probe_texts = []
-                    for probe_text in batch:
-                        probe_texts.append(probe_text)
+                triple_order_dict[f"{month}"][first_relation["obj"][0]] = {}
 
-                    if probe_text.lower() != first_relation["obj"][0] or "/" in probe_text: # NEW
-                        continue
+                for i in trange(0, len(Co_occur_list), p_args.batch_size):
+                    sub_batch = Co_occur_list[i:i + p_args.batch_size]
+                    for _ in range(p_args.batch_size - len(sub_batch)):
+                        sub_batch.append(sub_batch[-1])
 
-                    # print(probe_text)
-
-                    for _ in range(p_args.batch_size - len(probe_texts)):
-                        probe_texts.append(batch[-1])
-
+                    probe_texts = [first_relation["obj"][0] for _ in range(p_args.batch_size)]
 
                     first_relation = triple["extract relation pairs"][list(triple["extract relation pairs"].keys())[0]]
-                    text = triple["relation_prompt"].replace("[X]", first_relation["sub"][0])
+                    texts = [triple["relation_prompt"].replace("[X]", sub_) for sub_ in sub_batch]
 
-                    all_preds_probs = decoder.decode([text for _ in probe_texts], probe_texts=probe_texts) # topk predictions
+                    all_preds_probs = decoder.decode(texts, probe_texts=probe_texts)  # topk predictions
 
-                    # print(all_preds_probs)
-                    for preds_probs in all_preds_probs:
-                        triple_order_dict[f"{month}"][preds_probs[0]] = float(preds_probs[1])
+                    for idx, preds_probs in enumerate(all_preds_probs):
+                        triple_order_dict[f"{month}"][first_relation["obj"][0]][sub_batch[idx]] = float(preds_probs[1])
 
-                # print(triple_order_dict)
-
-                # print(triple_order_dict
                 rank_dict[data_short][month] = triple_order_dict[month]
-            # else:
-            #     print(f'Skip a Run {data_short} at month {month}, triple feature {Triple_feature}')
-            #     triple_order_dict[f"{month}"] = rank_dict[data_short][f"{month}"]
 
-            triple_order_dict[f"{month}"] = dict(sorted(triple_order_dict[f"{month}"].items(), key=lambda item: item[1]))
-
-            os.makedirs(f"Rank_result/{p_args.train_mode}/{data_short}/{Triple_feature}", exist_ok=True)
-            with open(f"Rank_result/{p_args.train_mode}/{data_short}/{Triple_feature}/Rank_dict.json", "w") as f:
+            os.makedirs(f"Co_occur_result/{p_args.train_mode}/{data_short}/{Triple_feature}", exist_ok=True)
+            with open(f"Co_occur_result/{p_args.train_mode}/{data_short}/{Triple_feature}/Rank_dict.json", "w") as f:
                 json.dump(triple_order_dict, f, indent=4)
 
-            with open(f"Rank_result/{p_args.train_mode}/{data_short}/{Triple_feature}/Triple_save.json", "w") as f:
-                json.dump(triple, f, indent=4)
-
-
-
-
+            with open(f"Co_occur_result/{p_args.train_mode}/{data_short}/{Triple_feature}/Triple_save.json", "w") as f:
+                json.dump(triple, f, indent=4)  # NEW
+            # time.sleep(2)
 
 
 if __name__ == '__main__':
