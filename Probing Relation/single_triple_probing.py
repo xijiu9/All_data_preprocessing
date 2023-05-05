@@ -146,7 +146,7 @@ def main():
 
     p_args = parser.parse_args()
 
-    with open("../Extract_Relation/Triple_list_after_2020.json", "r") as f:
+    with open("../Extract_Relation/Triple_list_after_2020_updated.json", "r") as f:
         Triple_list = json.load(f)
     # with open("Summarize/Object_list.json", "r") as f:
     #     Object_list = json.load(f)
@@ -157,9 +157,6 @@ def main():
     model_dict = {}
 
     for triple in Triple_list:
-
-        min_time, max_time = triple["extract relation pairs"]["min time"], triple["extract relation pairs"]["max time"]
-
         min_time, max_time = "2020/01/01 00:00", "2022/12/31 23:59"# NEW
         intermediate_months = get_months(min_time, max_time, p_args.train_mode)
 

@@ -12,13 +12,14 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 def print_predictions(sentence, preds_probs):
     k = min(len(preds_probs),100)
+
     # print(f"Top {k} predictions")
     print("-------------------------")
     print(f"Rank\tProb\tPred")
     print("-------------------------")
     for i in range(k):
         preds_prob = preds_probs[i]
-        print(f"{i+1}\t{preds_prob[1]:.10f}\t{preds_prob[0]}")
+        print(f"{i+1}\t{preds_prob[1]}\t{preds_prob[0]}")
 
     print("-------------------------")
     # print("\n")
@@ -28,12 +29,12 @@ def print_predictions(sentence, preds_probs):
 def main():
     parser = argparse.ArgumentParser()
     # parser.add_argument("--text", required=True)
-    parser.add_argument("--model_name_or_path", default='bert-base-uncased')
+    parser.add_argument("--model_name_or_path", required=True, default='bert-base-uncased')
     parser.add_argument("--init_method", choices=['independent','order'], default='order')
     parser.add_argument("--iter_method", choices=['none','order','confidence'], default='none')
     parser.add_argument("--max_iter", type=int, default=10)
     parser.add_argument("--beam_size", type=int, default=1)
-    parser.add_argument("--batch_size", type=int, default=10)
+    parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--probe_text", type=str, default='', required=True)
     args = parser.parse_args()
 
@@ -55,7 +56,8 @@ def main():
         iter_method=args.iter_method,
         MAX_ITER=args.max_iter,
         BEAM_SIZE=args.beam_size,
-        verbose=False
+        verbose=False,
+        batch_size=1
     )
 
     while True:
@@ -64,10 +66,9 @@ def main():
             print("[Warning] Please type in the proper format.\n")
             continue
 
-        all_preds_probs = decoder.decode(text, probe_text=args.probe_text) # topk predictions
-        preds_probs = all_preds_probs[0]
+        all_preds_probs = decoder.decode([text], probe_texts=[args.probe_text]) # topk predictions
 
-        print_predictions(text, preds_probs)
+        print_predictions(text, all_preds_probs)
 
         print("\n")
 

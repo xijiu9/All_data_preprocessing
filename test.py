@@ -71,71 +71,71 @@ import numpy as np
 
 
 
-
-print(time.asctime(time.localtime()))
-
-object_path = "/m-ent1/ent1/xihc20/ALL_DATA_PREPROCESSING/Extract_Relation/Words_PMID/Single_intersection/MedLAMA/medlama/may_treat_1000/Object_dict.json"
-subject_path = "/m-ent1/ent1/xihc20/ALL_DATA_PREPROCESSING/Extract_Relation/Words_PMID/Single_intersection/MedLAMA/medlama/may_treat_1000/Subject_dict.json"
-with open(object_path) as f:
-    Object_dict = json.load(f)
-with open(subject_path) as f:
-    Subject_dict = json.load(f)
-print(time.asctime(time.localtime()))
-
-pcos = Object_dict["parkinson disease".lower()]
-deso = Subject_dict["safinamide mesylate".lower()]
-
-print(pcos)
-print(deso)
-print(len(pcos))
-print(len(deso))
-
-# IPython.embed()
-print(set(pcos).intersection(set(deso)))
-
-# IPython.embed()
-
-Obj_time_dict, Sub_time_dict = {}, {}
-for key in tqdm(pcos):
-    key = int(key)
-    if key < 25000000:
-        continue
-
-    try:
-        with open(f"Fetch_Date_Info/data_map/{5000 * (key // 5000)}-{5000 * (key // 5000 + 1)}.json") as f:
-            time_map = json.load(f)
-    except:
-        print("wrong")
-        print(f"Fetch_Date_Info/data_map/{5000 * (key // 5000)}-{5000 * (key // 5000 + 1)}.json")
-        continue
-
-    year, month, day = int(time_map[f"{key}"]["full"]["EDAT"][0:4]), int(time_map[f"{key}"]["full"]["EDAT"][5:7]), int(
-        time_map[f"{key}"]["full"]["EDAT"][8:10])
-    full_time = time_map[f"{key}"]["full"]["EDAT"]
-
-    Obj_time_dict[key] = full_time
-
-with open("test_Obj.json", "w") as f:
-    json.dump(Obj_time_dict, f, indent=4)
-
-for key in tqdm(deso):
-    key = int(key)
-    try:
-        with open(f"Fetch_Date_Info/data_map/{5000 * (key // 5000)}-{5000 * (key // 5000 + 1)}.json") as f:
-            time_map = json.load(f)
-    except:
-        print("wrong")
-        print(f"Fetch_Date_Info/data_map/{5000 * (key // 5000)}-{5000 * (key // 5000 + 1)}.json")
-        continue
-
-    year, month, day = int(time_map[f"{key}"]["full"]["EDAT"][0:4]), int(time_map[f"{key}"]["full"]["EDAT"][5:7]), int(
-        time_map[f"{key}"]["full"]["EDAT"][8:10])
-    full_time = time_map[f"{key}"]["full"]["EDAT"]
-
-    Sub_time_dict[key] = full_time
-
-with open("test_Sub.json", "w") as f:
-    new_triple_list = json.dump(Sub_time_dict, f, indent=4)
+########### use for determine test_Obj and test_Sub
+# print(time.asctime(time.localtime()))
+#
+# object_path = "/m-ent1/ent1/xihc20/ALL_DATA_PREPROCESSING/Extract_Relation/Words_PMID/Single_intersection/MedLAMA/medlama/may_treat_1000/Object_dict.json"
+# subject_path = "/m-ent1/ent1/xihc20/ALL_DATA_PREPROCESSING/Extract_Relation/Words_PMID/Single_intersection/MedLAMA/medlama/may_treat_1000/Subject_dict.json"
+# with open(object_path) as f:
+#     Object_dict = json.load(f)
+# with open(subject_path) as f:
+#     Subject_dict = json.load(f)
+# print(time.asctime(time.localtime()))
+#
+# pcos = Object_dict["parkinson disease".lower()]
+# deso = Subject_dict["safinamide mesylate".lower()]
+#
+# print(pcos)
+# print(deso)
+# print(len(pcos))
+# print(len(deso))
+#
+# # IPython.embed()
+# print(set(pcos).intersection(set(deso)))
+#
+# # IPython.embed()
+#
+# Obj_time_dict, Sub_time_dict = {}, {}
+# for key in tqdm(pcos):
+#     key = int(key)
+#     if key < 25000000:
+#         continue
+#
+#     try:
+#         with open(f"Fetch_Date_Info/data_map/{5000 * (key // 5000)}-{5000 * (key // 5000 + 1)}.json") as f:
+#             time_map = json.load(f)
+#     except:
+#         print("wrong")
+#         print(f"Fetch_Date_Info/data_map/{5000 * (key // 5000)}-{5000 * (key // 5000 + 1)}.json")
+#         continue
+#
+#     year, month, day = int(time_map[f"{key}"]["full"]["EDAT"][0:4]), int(time_map[f"{key}"]["full"]["EDAT"][5:7]), int(
+#         time_map[f"{key}"]["full"]["EDAT"][8:10])
+#     full_time = time_map[f"{key}"]["full"]["EDAT"]
+#
+#     Obj_time_dict[key] = full_time
+#
+# with open("test_Obj.json", "w") as f:
+#     json.dump(Obj_time_dict, f, indent=4)
+#
+# for key in tqdm(deso):
+#     key = int(key)
+#     try:
+#         with open(f"Fetch_Date_Info/data_map/{5000 * (key // 5000)}-{5000 * (key // 5000 + 1)}.json") as f:
+#             time_map = json.load(f)
+#     except:
+#         print("wrong")
+#         print(f"Fetch_Date_Info/data_map/{5000 * (key // 5000)}-{5000 * (key // 5000 + 1)}.json")
+#         continue
+#
+#     year, month, day = int(time_map[f"{key}"]["full"]["EDAT"][0:4]), int(time_map[f"{key}"]["full"]["EDAT"][5:7]), int(
+#         time_map[f"{key}"]["full"]["EDAT"][8:10])
+#     full_time = time_map[f"{key}"]["full"]["EDAT"]
+#
+#     Sub_time_dict[key] = full_time
+#
+# with open("test_Sub.json", "w") as f:
+#     new_triple_list = json.dump(Sub_time_dict, f, indent=4)
 
 
 
@@ -177,12 +177,14 @@ with open("test_Sub.json", "w") as f:
 #     new_triple_list = json.dump(Triple_list_after_2020, f)
 
 
-# print(time.asctime(time.localtime()))
-#
-# with open('Extract Relation/Extract Result/e_result/BioLAMA/ctd/CD1/Object_dict.json') as f:
-#     Object_dict = json.load(f)
-#
-# print(time.asctime(time.localtime()))
+print(time.asctime(time.localtime()))
+
+with open('Extract_Relation/Extract Result/e_result/MedLAMA/medlama/may_treat_1000/Subject_dict.json') as f:
+    Subject_dict = json.load(f)
+
+print(time.asctime(time.localtime()))
+
+IPython.embed()
 #
 # values = []
 # for k, v in Object_dict.items():

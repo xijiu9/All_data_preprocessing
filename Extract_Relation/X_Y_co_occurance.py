@@ -6,7 +6,6 @@ import time
 import nltk
 from tqdm import tqdm
 import copy
-import pyfiglet
 import IPython
 
 
