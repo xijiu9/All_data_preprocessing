@@ -1,0 +1,80 @@
+data*
+result
+models
+__pycache__
+
+*.pyc
+
+# Ignore Torch checkpoint files
+*.ckpt
+*.pt
+*.pth
+
+# Ignore Torch tensor files
+*.t7
+
+# Ignore Torch model files
+*.model
+
+# Ignore Torch serialized objects
+*.pkl
+*.pickle
+
+# Ignore Torch script files
+*.script
+
+# Ignore Torch traced models
+*.traced
+
+# Ignore Torch JIT artifacts
+*.jit
+
+# Ignore Torch ONNX files
+*.onnx
+
+# Ignore Torch model logs
+*.log
+
+# Ignore Numpy arrays
+*.npy
+*.npz
+
+# Ignore text files
+*.txt
+*.json
+
+# Ignore image files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+
+# Ignore video files
+*.mp4
+*.avi
+*.mov
+
+# Ignore audio files
+*.mp3
+*.wav
+
+# Ignore compressed files
+*.zip
+*.tar.gz
+*.tar.bz2
+*.tar
+
+# Ignore temporary files and directories
+*.swp
+.DS_Store
+__pycache__/
+
+# Ignore user-specific files
+.idea/
+.vscode/
+*.iml
+
+# Ignore system-specific files
+Thumbs.db
+desktop.ini

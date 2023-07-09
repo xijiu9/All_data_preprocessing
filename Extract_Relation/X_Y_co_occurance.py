@@ -28,33 +28,66 @@ def flatten(lst):
     return result
 
 
-with open("../Extract_Relation/Triple_list_after_2020.json", "r") as f:
-    Triple_list = json.load(f)
+Relation_path = sorted(list(set(glob.glob("Triple_result/BioLAMA/*/*/", recursive=True))))
+ALL_Subject, ALL_Object = {}, {}
 
-for triple in tqdm(Triple_list):
-    short_path = triple["data_short"]
+for file_path in Relation_path:
+    short_path = "/".join(file_path.split("/")[-4:-1])
+    print(short_path)
 
-    object_path = f"Words_PMID/Single_intersection/{short_path}/Object_dict.json"
-    subject_path = f"Words_PMID/Single_intersection/{short_path}/Subject_dict.json"
+    object_path = f"Words_PMID/Exact_intersection/{short_path}/Object_dict.json"
+    subject_path = f"Words_PMID/Exact_intersection/{short_path}/Subject_dict.json"
     with open(object_path) as f:
         Object_dict = json.load(f)
     with open(subject_path) as f:
         Subject_dict = json.load(f)
 
-    cooccurance_subject_list = []
+    print(len(Object_dict), len(Subject_dict))
+    old, new, zero = 0, 0, 0
+    for k in Object_dict:
+        if k not in ALL_Object.keys():
+            ALL_Object[k] = Object_dict[k]
+            new += 1
+        else:
+            try:
+                assert set(ALL_Object[k]) == set(Object_dict[k])
+            except:
+                import IPython
+                IPython.embed()
+            old += 1
+
+        if len(Object_dict[k]) == 0:
+            zero += 1
+    print(old, new, zero)
+
+    old, new, zero = 0, 0, 0
+    for k in Subject_dict:
+        if k not in ALL_Subject.keys():
+            ALL_Subject[k] = Subject_dict[k]
+            new += 1
+        else:
+            assert set(ALL_Subject[k]) == set(Subject_dict[k])
+            old += 1
+
+        if len(Subject_dict[k]) == 0:
+            zero += 1
+    print(old, new, zero)
+
+    with open(f"Words_PMID/Exact_intersection/ALL_Object_dict.json", "w") as f:
+        json.dump(ALL_Object, f)
+    with open(f"Words_PMID/Exact_intersection/ALL_Subject_dict.json", "w") as f:
+        json.dump(ALL_Subject, f)
+# all_values = list(ALL_Object.values())
+#
+# if len(all_values) >= 2:
+#     common_keys = set(all_values[0]).intersection(all_values[1])
+#     if common_keys:
+#         print("头两个值有公共的键（key）:", len(common_keys))
+#     else:
+#         print("头两个值没有公共的键（key）")
+#
+import IPython
+IPython.embed()
 
 
-    first_relation = triple["extract relation pairs"][list(triple["extract relation pairs"].keys())[0]]
-    Triple_feature = first_relation["sub"][0] + ' & ' + first_relation["obj"][0]
-    OO = first_relation["obj"][0]
-
-    for sub, pmids in Subject_dict.items():
-        pmid_set = set(pmids)
-
-        if pmid_set.intersection(set(Object_dict[OO])):
-            cooccurance_subject_list.append(sub)
-
-    os.makedirs(f"Co_occurance/{short_path}/{Triple_feature}", exist_ok=True)
-    with open(f"Co_occurance/{short_path}/{Triple_feature}/Co_occur.json", "w") as f:
-        json.dump(cooccurance_subject_list, f, indent=4)
 

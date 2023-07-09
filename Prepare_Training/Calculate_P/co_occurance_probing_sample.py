@@ -1,5 +1,6 @@
 import torch
 from transformers import (
+    AutoConfig,
     AutoTokenizer,
     AutoModelWithLMHead
 )
@@ -13,8 +14,14 @@ from datetime import datetime, timedelta
 from tqdm import tqdm, trange
 import torch.multiprocessing as mp
 import warnings
+import numpy as np
+import torch
 
 warnings.filterwarnings("ignore", message="your warning message here")
+import pynvml
+
+pynvml.nvmlInit()
+handle = pynvml.nvmlDeviceGetHandleByIndex(0)
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -135,12 +142,13 @@ def get_months(start_date_str, end_date_str, train_mode=''):
         return valid_half_years
 
 
-def main():
+def main(step='step_25001', time_feature='q_2022_1'):
     parser = argparse.ArgumentParser()
     # parser.add_argument("--text", required=True)
     parser.add_argument("--init_method", choices=['independent', 'order'], default='order')
     parser.add_argument("--iter_method", choices=['none', 'order', 'confidence'], default='none')
     parser.add_argument("--max_iter", type=int, default=10)
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--beam_size", type=int, default=1)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument('--train_mode', type=str, required=True, default='m', choices=['m', 'q', 'h'],
@@ -148,96 +156,123 @@ def main():
 
     p_args = parser.parse_args()
 
-    with open("../Extract_Relation/Triple_list_after_2020.json", "r") as f:
-        Triple_list = json.load(f)
-    # with open("Summarize/Object_list.json", "r") as f:
-    #     Object_list = json.load(f)
+    with open(f"../Get_Indices/zero_indices_{time_feature}_only_1000000.json", "r") as f:
+        zero_indices = json.load(f)
+    with open(f"../Get_Indices/positive_indices_{time_feature}.json", "r") as f:
+        nonzero_indices = json.load(f)
 
-    mp.set_start_method('spawn')
+    sample_size = 10000
 
-    rank_dict = {}
-    model_dict = {}
+    np.random.seed(p_args.seed)
+    torch.manual_seed(p_args.seed)
 
-    for triple in Triple_list:
+    # 打乱 nonzero_indices 数组顺序
+    np.random.shuffle(nonzero_indices)
+    np.random.shuffle(zero_indices)
 
-        min_time, max_time = triple["extract relation pairs"]["min time"], triple["extract relation pairs"]["max time"]
+    # 从打乱后的数组中选择百分之一的样本
+    random_sample_1 = nonzero_indices[:sample_size]
+    random_sample_2 = zero_indices[:sample_size]
+    random_sample = random_sample_1 + random_sample_2
+    np.random.shuffle(random_sample)
+    print(f"seed {p_args.seed}, ", random_sample[0:10])
 
-        min_time, max_time = "2020/01/01 00:00", "2022/12/31 23:59"  # NEW
-        intermediate_months = get_months(min_time, max_time, p_args.train_mode)
+    # 根据样本的第一位构建字典
+    result_dict = {}
+    for index in random_sample:
+        key = index[0]
+        if key in result_dict:
+            result_dict[key].append(index[1])
+        else:
+            result_dict[key] = [index[1]]
 
-        triple_order_dict = {}
+    probing_result = {}
+    print(step)
+    # for month in ["q_2022_4"]:
+    #     model_path = f"../../../SHENG/result/{month}/pretrain/"
+    # for month in [f"control_{time_feature}_GSAM_only_10_epoch"]:
+    #     model_path = f"../../../SHENG/result/{month}/"
+    for month in [f"GSAM_{time_feature}_only_10_epoch_rho_0.1_alpha_0.4"]:
+        model_path = f"../../../SHENG/after_EMNLP_result/{month}/"
 
-        data_short = triple["data_short"]
+        print(f'load model at month {month} step {step}')
+        tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
+        config = AutoConfig.from_pretrained(model_path, use_fast=False)
+        lm_model = AutoModelWithLMHead.from_pretrained(model_path + step, config=config) #  + step
+        if torch.cuda.is_available():
+            lm_model = lm_model.cuda()
 
-        if data_short not in rank_dict.keys():
-            rank_dict[data_short] = {}
+        # make sure this is only an evaluation
+        lm_model.eval()
+        for param in lm_model.parameters():
+            param.grad = None
 
-        first_relation = triple["extract relation pairs"][list(triple["extract relation pairs"].keys())[0]]
-        Triple_feature = first_relation["sub"][0] + ' & ' + first_relation["obj"][0]
-        with open(f"../Extract_Relation/Co_occurance/{data_short}/{Triple_feature}/Co_occur.json", "r") as f:
-            Co_occur_list = json.load(f)
+        decoder = Decoder(
+            model=lm_model,
+            tokenizer=tokenizer,
+            init_method=p_args.init_method,
+            iter_method=p_args.iter_method,
+            MAX_ITER=p_args.max_iter,
+            BEAM_SIZE=p_args.beam_size,
+            verbose=False,
+            batch_size=p_args.batch_size
+        )
 
-        for month in intermediate_months:
-            # if month not in rank_dict[data_short].keys():
-            if True:  # NEW
-                triple_order_dict[f"{month}"] = {}
-                model_path = f"../../SHENG/result/{month}/pretrain/"
+        # universal_prompt = "[X] [Y]."
+        universal_prompt = "[X] has relation with [Y]."
+        # universal_prompt = "[X] has very strong relation with [Y]."
+        for idx, (sub_id, obj_list) in tqdm(enumerate(result_dict.items()), total=len(result_dict)):
+            sub_text = subject_map[str(sub_id)]
+            text = universal_prompt.replace("[X]", sub_text)
+            probing_result[sub_id] = {}
 
-                if month not in model_dict.keys():
-                    print(f'load model {data_short} at month {month}, triple feature {Triple_feature}')
-                    tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
-                    lm_model = AutoModelWithLMHead.from_pretrained(model_path)
-                    if torch.cuda.is_available():
-                        lm_model = lm_model.cuda()
+            for i in range(0, len(obj_list), p_args.batch_size):
+                batch = obj_list[i:i + p_args.batch_size]
+                probe_texts = []
 
-                    model_dict[month] = [tokenizer, lm_model]
-                else:
-                    print(f'Have model {data_short} at month {month}, triple feature {Triple_feature}')
-                    tokenizer, lm_model = model_dict[month]
+                for probe_id in batch:
+                    probe_text = object_map[str(probe_id)]
+                    probe_texts.append(probe_text)
 
-                # make sure this is only an evaluation
-                lm_model.eval()
-                for param in lm_model.parameters():
-                    param.grad = None
+                for _ in range(p_args.batch_size - len(probe_texts)):
+                    probe_texts.append(probe_texts[-1])
 
-                decoder = Decoder(
-                    model=lm_model,
-                    tokenizer=tokenizer,
-                    init_method=p_args.init_method,
-                    iter_method=p_args.iter_method,
-                    MAX_ITER=p_args.max_iter,
-                    BEAM_SIZE=p_args.beam_size,
-                    verbose=False,
-                    batch_size=p_args.batch_size
-                )
+                # import IPython
+                # IPython.embed()
 
-                triple_order_dict[f"{month}"][first_relation["obj"][0]] = {}
+                all_preds_probs = decoder.decode([text for _ in probe_texts],
+                                                 probe_texts=probe_texts)  # topk predictions
 
-                for i in trange(0, len(Co_occur_list), p_args.batch_size):
-                    sub_batch = Co_occur_list[i:i + p_args.batch_size]
-                    for _ in range(p_args.batch_size - len(sub_batch)):
-                        sub_batch.append(sub_batch[-1])
+                for (obj, prob), actual_obj in zip(all_preds_probs, probe_texts):
+                    probing_result[sub_id][object_inverse_map[actual_obj]] = float(prob)
 
-                    probe_texts = [first_relation["obj"][0] for _ in range(p_args.batch_size)]
-
-                    first_relation = triple["extract relation pairs"][list(triple["extract relation pairs"].keys())[0]]
-                    texts = [triple["relation_prompt"].replace("[X]", sub_) for sub_ in sub_batch]
-
-                    all_preds_probs = decoder.decode(texts, probe_texts=probe_texts)  # topk predictions
-
-                    for idx, preds_probs in enumerate(all_preds_probs):
-                        triple_order_dict[f"{month}"][first_relation["obj"][0]][sub_batch[idx]] = float(preds_probs[1])
-
-                rank_dict[data_short][month] = triple_order_dict[month]
-
-            os.makedirs(f"Co_occur_result/{p_args.train_mode}/{data_short}/{Triple_feature}", exist_ok=True)
-            with open(f"Co_occur_result/{p_args.train_mode}/{data_short}/{Triple_feature}/Rank_dict.json", "w") as f:
-                json.dump(triple_order_dict, f, indent=4)
-
-            with open(f"Co_occur_result/{p_args.train_mode}/{data_short}/{Triple_feature}/Triple_save.json", "w") as f:
-                json.dump(triple, f, indent=4)  # NEW
-            # time.sleep(2)
-
+            if idx % 2000 == 100:
+                os.makedirs(f"control_probing_matrix_{time_feature}/{month}", exist_ok=True)
+                with open(f"control_probing_matrix_{time_feature}/{month}/LM_{step}.json", "w") as f:
+                    json.dump(probing_result, f, indent=4)
+                    # print(probing_result)
+                print(f"save result at time {idx}")
+        with open(f"control_probing_matrix_{time_feature}/{month}/LM_{step}.json", "w") as f:
+            json.dump(probing_result, f, indent=4)
+            # print(probing_result)
+        print(f"save result at time {idx}")
+    # import IPython
+    # IPython.embed()
 
 if __name__ == '__main__':
-    main()
+    with open('../Cooccurance_Matrix/subject_map.json', 'r') as file:
+        subject_map = json.load(file)
+    with open('../Cooccurance_Matrix/subject_inverse_map.json', 'r') as file:
+        subject_inverse_map = json.load(file)
+    with open('../Cooccurance_Matrix/object_map.json', 'r') as file:
+        object_map = json.load(file)
+    with open('../Cooccurance_Matrix/object_inverse_map.json', 'r') as file:
+        object_inverse_map = json.load(file)
+
+    # for step in ['step_1001', 'step_2001', 'step_4001','step_6001', 'step_8001', 'step_10001', 'step_12001', 'step_16001', 'step_20001']:
+    #     main(step=step, time_feature='q_2022_1')
+    # main(time_feature='q_2022_2')
+    for step in ['step_1', 'step_1001', 'step_2001', 'step_4001', 'step_6001', 'step_8001', 'step_10001', 'step_12001',
+                 'step_16001', 'step_20001']:
+        # for step in ['step_8001',]:
+        main(time_feature='q_2022_1', step=step)
