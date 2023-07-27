@@ -182,24 +182,33 @@ def main():
         with open(f"../Extract_Relation/Triple_result/{data_short}/Object_list.json", "r") as f:
             Object_list = json.load(f)
 
-        # for month in intermediate_months[:4]:
+        # for month in ["q_2021_4/unlearn_rho_0.2_alpha_0.4", ]:
+        # for month in ["toy_unlearn_rho_0.1_alpha_0.4",]:
+        # for month in intermediate_months:
+            # month = "toy_" + month
         # for month in ["recover_multi_triple_3000_steps_seed_42_sgd_momentum_no_nestrove_adamW_ascent_1_descent_1_step"]:
-        for month in ["recover_gsam"]:
+        # for month in ["gsam_2022_1_verify"]:
         # for month in ["debug_descent_first_single_triple_300_steps_seed_42_sgd_momentum_no_nestrove_adamW_ascent_1_descent_1_step_q_2022_1"]:
         # for month in ["q_2022_1_ascent_SGD_3"]:
-        # for month in ["q_2019_4"]:
-            # model_path = f"../../SHENG/BioBERTresult_line_by_line/{month}/pretrain/"
-            # model_path = f"../../SHENG/Retrain_BioBERT/{month}/pretrain/"
-            model_path = f"../../SHENG/result/{month}/pretrain/"
-            subdirs = sorted([d for d in os.listdir(model_path) if #  and 20000 > int(d.split("_")[-1]) > 10000
-                       os.path.isdir(os.path.join(model_path, d)) and "epoch" in d], key=lambda x: int(x.split("_")[-1]))
-            print(subdirs)
+        # for month in ["unlearn_q_2020_1_epoch_10_not_vertical"]:
+        # for month in ["GSAM_q_2022_1_only_10_epoch_rho_0.1_alpha_0.4"]:
+        for month in ["toy_q_2022_1_unlearn_rho_0.05_alpha_1.0"]:
+            model_path = f"../../SHENG/Second_Unlearn_BioBERT/{month}/"
+            # model_path = f"../../SHENG/after_EMNLP_result/{month}/"
+            # model_path = f"../../SHENG/Retrain_BioBERT_unlearn/{month}/"
+            # model_path = f"../../SHENG/Reforget_BioBERT/{month}/"
+            # model_path = f"../../SHENG/Second_Retrain_BioBERT/{month}"
+            # model_path = f"../../SHENG/after_July_result/{month}/"
+            # model_path = f"../../SHENG/result/{month}/pretrain/"
+            subdirs = sorted([d for d in os.listdir(model_path) if #  and 20000 > int(d.split("_")[-1]) > 10000  and "epoch" in d
+                       os.path.isdir(os.path.join(model_path, d)) and int(d.split("_")[-1]) < 10000], key=lambda x: int(x.split("_")[-1]))
+            print("subdir is ", subdirs)
             for model_step in subdirs:
             # for model_step in ["no_use"]:
             # if True: # NEW
             #     if "step" not in model_step:
             #         continue
-                print(model_step)
+                print("model step is ", model_step)
                 triple_order_dict[f"{month}/{model_step}"] = {}
 
                 if (month + "/" + model_step) not in model_dict.keys():

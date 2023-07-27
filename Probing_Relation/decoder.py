@@ -106,7 +106,7 @@ class Decoder():
         attention_mask = inp_tensor.ne(self.PAD_IDX).long()
         mask_ind = inp_tensor.eq(self.MASK_IDX).long()
 
-        if torch.cuda.is_available():
+        if torch.cuda.is_available() and self.model.parameters().__next__().device == "cuda":
             inp_tensor = inp_tensor.cuda()
             attention_mask = attention_mask.cuda()
             mask_ind = mask_ind.cuda()

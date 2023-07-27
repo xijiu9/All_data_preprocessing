@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore", message="your warning message here")
 import pynvml
 
 pynvml.nvmlInit()
-handle = pynvml.nvmlDeviceGetHandleByIndex(3)
+handle = pynvml.nvmlDeviceGetHandleByIndex(1)
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -173,7 +173,7 @@ def main():
 
     with open("../Extract_Relation/Triple_list_after_2020_updated.json", "r") as f:
         Triple_list = json.load(f)
-    with open("../Divide_Into_Months/pmids_in_q_2022_02.json", "r") as f:
+    with open("../Divide_Into_Months/pmids_in_q_2020_01.json", "r") as f:
         pmid_list = json.load(f)
 
     mp.set_start_method('spawn')
@@ -200,6 +200,8 @@ def main():
 
         # if list(triple["extract relation pairs"].keys())[0] not in pmid_list:
         #     continue
+        if "CD1" not in triple["data_short"]:
+            continue
 
         min_time, max_time = "2020/01/01 00:00", "2022/12/31 23:59"  # NEW
         intermediate_months = get_months(min_time, max_time, p_args.train_mode)
@@ -219,7 +221,7 @@ def main():
 
         print(Triple_feature)
 
-        sample_size = 200
+        sample_size = 0
         with open(f"../Extract_Relation/Triple_result/{data_short}/Object_list.json", "r") as f:
             Subject_list = json.load(f)
         with open(f"../Extract_Relation/Triple_result/{data_short}/Object_list.json", "r") as f:
@@ -232,7 +234,8 @@ def main():
         # sample_Subject_list = random.sample(Subject_list, sample_size) + New_Subject_list
         # sample_Object_list = random.sample(Object_list, sample_size) + New_Object_list
 
-        for month in intermediate_months:
+        for month in ["q_2021_2"]:
+        # for month in ["q_2021_4/unlearn_rho_0.1_alpha_0.2",]:
         # for month in ["debug_descent_first_multi_triple_3000_steps_seed_42_sgd_momentum_no_nestrove_adamW_ascent_1_descent_1_step"]:
         # for month in ["debug_descent_first_single_triple_300_steps_seed_42_sgd_momentum_no_nestrove_adamW_ascent_1_descent_1_step_q_2022_1"]:
         # for month in ["q_2022_1_ascent_SGD_3"]:
@@ -241,10 +244,16 @@ def main():
         #     model_path = f"../../SHENG/result/{month}/pretrain"
         # for month in ["q_2021_2", "q_2021_3", "q_2021_4"]:
         #     model_path = f"../../SHENG/BioBERTresult_line_by_line/{month}/pretrain/"
-            model_path = f"../../SHENG/result/{month}/pretrain/"
-            # subdirs = sorted([d for d in os.listdir(model_path) if
-            #                   os.path.isdir(os.path.join(model_path, d)) and 20000 > int(d.split("_")[-1]) > 10000],
-            #                  key=lambda x: int(x.split("_")[-1]))
+        #     model_path = f"../../SHENG/Retrain_BioBERT/{month}/pretrain/"
+        #     model_path = f"../../SHENG/Retrain_BioBERT_unlearn/{month}/"
+            model_path = f"../../SHENG/Only_Use_COVID/{month}/unlearn_from_q_2021_2_to_q_2019_4/"
+            # subdirs = sorted(
+            #     [d for d in os.listdir(model_path) if  # and 20000 > int(d.split("_")[-1]) > 10000  and "epoch" in d
+            #      os.path.isdir(os.path.join(model_path, d)) and int(d.split("_")[-1]) < 10000],
+            #     key=lambda x: int(x.split("_")[-1]))
+            # print("subdir is ", subdirs)
+            # for model_step in subdirs:
+            subdirs = ["step_1", "step_1001", "step_3001", "step_6001", "step_9001", "step_12001", "step_18001"]
             # print(subdirs)
             # for model_step in subdirs:
             for model_step in ["no_use"]:
@@ -317,7 +326,7 @@ def main():
                 # Object probing
                 triple_order_dict_object[f"{month}/{model_step}"] = {}
 
-                if data_short + '@' + month not in overlap_object.keys():
+                if data_short + '@' + month + '@' + model_step not in overlap_object.keys():
                     for sample_sub in tqdm(sample_Subject_list):
                         triple_order_dict_object[f"{month}/{model_step}"][sample_sub] = {}
                         for i in range(0, len(New_Object_list), p_args.batch_size):
@@ -343,10 +352,10 @@ def main():
                                 # triple_order_dict_object[f"{month}/{model_step}"][sample_sub][preds_probs[0]] = float(preds_probs[1])
                                 triple_order_dict_object[f"{month}/{model_step}"][sample_sub][probe_texts[idx]] = float(preds_probs[1])
 
-                    overlap_object[data_short + '@' + month] = triple_order_dict_object
+                    overlap_object[data_short + '@' + month + '@' + model_step] = triple_order_dict_object[f"{month}/{model_step}"]
                 else:
                     print(f"skip calculating object in {data_short}")
-                    triple_order_dict_object = overlap_object[data_short + '@' + month]
+                    triple_order_dict_object[f"{month}/{model_step}"] = overlap_object[data_short + '@' + month + '@' + model_step]
 
             os.makedirs(f"Rank_result/{p_args.train_mode}/{data_short}/{Triple_feature}", exist_ok=True)
             triple_order_dict_subject = sort_dict(triple_order_dict_subject)
